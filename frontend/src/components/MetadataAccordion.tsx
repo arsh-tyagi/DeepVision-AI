@@ -115,7 +115,7 @@ export const MetadataAccordion: React.FC<MetadataAccordionProps> = ({ metadata }
                 {Object.entries(metadata.raw_tags).map(([k, v]) => (
                   <div key={k} className="flex justify-between gap-4 py-0.5 border-b border-stone-200/50 dark:border-stone-800/50">
                     <span className="text-stone-500">{k}:</span>
-                    <span className="text-stone-800 dark:text-stone-200 truncate">{v}</span>
+                    <span className="text-stone-800 dark:text-stone-200 truncate">{String(v)}</span>
                   </div>
                 ))}
               </div>

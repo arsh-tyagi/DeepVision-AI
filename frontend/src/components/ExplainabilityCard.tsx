@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { CheckCircle2, AlertOctagon, Terminal } from "lucide-react";
 import type { Explainability } from "../lib/api";
 
@@ -41,7 +41,7 @@ export const ExplainabilityCard: React.FC<ExplainabilityCardProps> = ({ explaina
                 <span>Physical Sensor & Optical Evidence</span>
               </div>
               <ul className="space-y-1.5 pl-1">
-                {explainability.why_real_points.map((pt, idx) => (
+                {explainability.why_real_points.map((pt: string, idx: number) => (
                   <li key={idx} className="text-xs text-stone-600 dark:text-stone-400 flex items-start gap-2">
                     <span className="text-emerald-500 font-mono">&gt;</span>
                     <span>{pt}</span>
@@ -58,7 +58,7 @@ export const ExplainabilityCard: React.FC<ExplainabilityCardProps> = ({ explaina
                 <span>Generative Diffusion Cues Detected</span>
               </div>
               <ul className="space-y-1.5 pl-1">
-                {explainability.why_ai_points.map((pt, idx) => (
+                {explainability.why_ai_points.map((pt: string, idx: number) => (
                   <li key={idx} className="text-xs text-stone-600 dark:text-stone-400 flex items-start gap-2">
                     <span className="text-rose-500 font-mono">&gt;</span>
                     <span>{pt}</span>
