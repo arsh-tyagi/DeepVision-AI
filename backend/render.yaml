@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: deepvision-ai-backend
+    env: python
+    plan: free
+    region: oregon
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: OMP_NUM_THREADS
+        value: 1
