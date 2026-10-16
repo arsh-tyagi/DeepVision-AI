@@ -69,15 +69,29 @@ export async function analyzeImage(file: File): Promise<ForensicAnalysisResponse
   const formData = new FormData();
   formData.append("file", file);
 
-  let response: Response;
-  try {
-    response = await fetch(`${API_BASE}/api/analyze`, {
-      method: "POST",
-      body: formData,
-    });
-  } catch (err: any) {
+  let response: Response | null = null;
+
+  // Up to 2 attempts to absorb free-tier Render container cold start delays
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      response = await fetch(`${API_BASE}/api/analyze`, {
+        method: "POST",
+        body: formData,
+      });
+      if (response && response.status !== 502 && response.status !== 503) {
+        break;
+      }
+    } catch {
+      if (attempt < 2) {
+        // Wait 3 seconds for server to finish waking up
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+      }
+    }
+  }
+
+  if (!response) {
     throw new Error(
-      `Forensic engine unreachable at ${API_BASE}. Please ensure the DeepVision-AI backend is running (or configure VITE_API_URL for production deployments).`
+      `The forensic server is currently waking up from Render's free-tier sleep (~30s cold start). It is online now — please click OK and re-upload your image!`
     );
   }
 
