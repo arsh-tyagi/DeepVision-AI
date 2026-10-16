@@ -71,27 +71,28 @@ export async function analyzeImage(file: File): Promise<ForensicAnalysisResponse
 
   let response: Response | null = null;
 
-  // Up to 2 attempts to absorb free-tier Render container cold start delays
-  for (let attempt = 1; attempt <= 2; attempt++) {
+  // 3 attempts with progressive backoff to handle Render free-tier spin-up
+  for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       response = await fetch(`${API_BASE}/api/analyze`, {
         method: "POST",
         body: formData,
       });
-      if (response && response.status !== 502 && response.status !== 503) {
+      if (response && response.status !== 502 && response.status !== 503 && response.status !== 504) {
         break;
       }
     } catch {
-      if (attempt < 2) {
-        // Wait 3 seconds for server to finish waking up
-        await new Promise((resolve) => setTimeout(resolve, 3000));
-      }
+      // Network error while Render container initializes
+    }
+
+    if (attempt < 3) {
+      await new Promise((resolve) => setTimeout(resolve, attempt * 2500));
     }
   }
 
-  if (!response) {
+  if (!response || response.status === 502 || response.status === 503 || response.status === 504) {
     throw new Error(
-      `The forensic server is currently waking up from Render's free-tier sleep (~30s cold start). It is online now — please click OK and re-upload your image!`
+      "The backend server is warming up from Render's free-tier sleep (~20-30s). Please click 'Retry Analysis' in a moment."
     );
   }
 

@@ -14,7 +14,7 @@ import { ForensicDisclaimerSection } from "./components/ForensicDisclaimerSectio
 import { AboutTeam } from "./components/AboutTeam";
 import { analyzeImage, downloadForensicReport } from "./lib/api";
 import type { ForensicAnalysisResponse } from "./lib/api";
-import { FileDown, RefreshCw } from "lucide-react";
+import { FileDown, RefreshCw, AlertTriangle, X } from "lucide-react";
 import confetti from "canvas-confetti";
 
 export const App: React.FC = () => {
@@ -31,6 +31,7 @@ export const App: React.FC = () => {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<ForensicAnalysisResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -50,6 +51,7 @@ export const App: React.FC = () => {
   }, [darkMode]);
 
   const handleFileSelected = async (file: File) => {
+    setUploadError(null);
     setCurrentFile(file);
     const objectUrl = URL.createObjectURL(file);
     setPreviewUrl(objectUrl);
@@ -78,7 +80,7 @@ export const App: React.FC = () => {
         });
       }
     } catch (err: any) {
-      alert(err.message || "Forensic analysis failed. Ensure backend server is active.");
+      setUploadError(err.message || "Forensic analysis failed. The free-tier backend may be waking up or restarting. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -98,7 +100,7 @@ export const App: React.FC = () => {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (err: any) {
-      alert("Error compiling PDF forensic report.");
+      setUploadError("Error compiling PDF forensic report. Please try again.");
     } finally {
       setDownloadingPdf(false);
     }
@@ -108,6 +110,7 @@ export const App: React.FC = () => {
     setCurrentFile(null);
     setPreviewUrl(null);
     setAnalysis(null);
+    setUploadError(null);
   };
 
   return (
@@ -165,6 +168,35 @@ export const App: React.FC = () => {
                 <p className="text-[10px] sm:text-[11px] text-stone-600 dark:text-stone-400 mt-0.5">Download report</p>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* In-page Notice Banner */}
+        {uploadError && (
+          <div className="mb-4 p-4 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800/60 flex items-start justify-between gap-3 text-xs font-mono text-amber-900 dark:text-amber-200 shadow-sm">
+            <div className="flex items-start gap-2.5 min-w-0">
+              <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <p className="font-semibold text-amber-900 dark:text-amber-200">System Notice</p>
+                <p className="text-amber-800 dark:text-amber-300 mt-1 leading-relaxed break-words">{uploadError}</p>
+                {currentFile && (
+                  <button
+                    onClick={() => handleFileSelected(currentFile)}
+                    className="mt-2.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Retry Analysis</span>
+                  </button>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={() => setUploadError(null)}
+              className="text-amber-700 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-200 p-1 shrink-0 rounded transition-colors"
+              aria-label="Dismiss notice"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
         )}
 

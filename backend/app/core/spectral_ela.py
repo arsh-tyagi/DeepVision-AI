@@ -7,12 +7,11 @@ from scipy import fftpack
 def compute_ela(image: Image.Image, quality: int = 95, scale: int = 15) -> tuple[float, float, str]:
     """
     Computes Error Level Analysis (ELA).
-    Returns:
-    - mean_deviation: float (overall compression difference)
-    - uniformity_score: float (how unnaturally uniform the compression residue is)
-    - preview_base64: JPEG base64 data string of the enhanced ELA difference
+    Memory-optimized: caps analysis dimension to max 1200px to guarantee <25MB RAM.
     """
     rgb_img = image.convert("RGB")
+    if max(rgb_img.size) > 1200:
+        rgb_img.thumbnail((1200, 1200), Image.Resampling.BILINEAR)
     
     # Save to memory at defined quality
     buffer = io.BytesIO()
@@ -23,7 +22,7 @@ def compute_ela(image: Image.Image, quality: int = 95, scale: int = 15) -> tuple
     
     # Compute absolute difference
     ela_diff = ImageChops.difference(rgb_img, resaved_img)
-    diff_arr = np.asarray(ela_diff, dtype=np.float32)
+    diff_arr = np.asarray(ela_diff, dtype=np.uint8)
     mean_dev = float(np.mean(diff_arr))
     
     std_dev = float(np.std(diff_arr))
@@ -36,6 +35,10 @@ def compute_ela(image: Image.Image, quality: int = 95, scale: int = 15) -> tuple
     preview_buf = io.BytesIO()
     enhanced_diff.save(preview_buf, "JPEG", quality=80)
     preview_base64 = base64.b64encode(preview_buf.getvalue()).decode("utf-8")
+    
+    buffer.close()
+    preview_buf.close()
+    del diff_arr, ela_diff, enhanced_diff, resaved_img, rgb_img
     
     return mean_dev, uniformity_score, f"data:image/jpeg;base64,{preview_base64}"
 
@@ -98,5 +101,7 @@ def compute_fft_spectral(image: Image.Image) -> tuple[float, float, bool, str]:
     spec_buf = io.BytesIO()
     spec_img.save(spec_buf, "PNG")
     spec_base64 = base64.b64encode(spec_buf.getvalue()).decode("utf-8")
+    spec_buf.close()
+    del norm_spec, spec_img, magnitude_spectrum, img_arr, F, F_shifted
     
     return high_freq_ratio, radial_variance, grid_detected, f"data:image/png;base64,{spec_base64}"

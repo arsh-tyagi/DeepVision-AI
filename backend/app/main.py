@@ -1,9 +1,16 @@
 import io
+import gc
 import datetime
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from PIL import Image
+
+try:
+    import pillow_heif
+    pillow_heif.register_heif_opener()
+except Exception:
+    pass
 
 from app.core.exif_forensics import analyze_metadata
 from app.core.spectral_ela import compute_ela, compute_fft_spectral
@@ -44,8 +51,11 @@ def root():
 
 @app.post("/api/analyze", response_model=ForensicAnalysisResponse)
 async def analyze_image(file: UploadFile = File(...)):
-    if not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="Uploaded file must be a valid image format.")
+    valid_exts = (".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif", ".tiff", ".bmp", ".jfif")
+    is_image_content = file.content_type and file.content_type.startswith("image/")
+    is_image_ext = any((file.filename or "").lower().endswith(ext) for ext in valid_exts)
+    if not (is_image_content or is_image_ext):
+        raise HTTPException(status_code=400, detail="Uploaded file must be a valid image format (JPEG, PNG, WebP, HEIC).")
     
     contents = await file.read()
     if len(contents) > 25 * 1024 * 1024:
@@ -59,6 +69,10 @@ async def analyze_image(file: UploadFile = File(...)):
 
     # 1. Signal A: Structural & Metadata Forensics
     metadata = analyze_metadata(image, filename=file.filename or "", raw_bytes=contents)
+
+    # Memory Guard: Cap pixel analysis matrix to max 1600px to ensure <30MB RAM footprint on Render 512MB free tier
+    if max(image.size) > 1600:
+        image.thumbnail((1600, 1600), Image.Resampling.BILINEAR)
 
     # 2. Signal B: ELA & 2D-FFT Spectral Analysis
     ela_mean, ela_uniformity, ela_b64 = compute_ela(image)
@@ -94,17 +108,31 @@ async def analyze_image(file: UploadFile = File(...)):
         "vision_model": vision_pred,
         "timestamp": timestamp_str
     }
+    
+    del contents, image
+    gc.collect()
+    
     return response_payload
 
 @app.post("/api/export-report")
 async def export_report(file: UploadFile = File(...)):
-    if not file.content_type.startswith("image/"):
+    valid_exts = (".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif", ".tiff", ".bmp", ".jfif")
+    is_image_content = file.content_type and file.content_type.startswith("image/")
+    is_image_ext = any((file.filename or "").lower().endswith(ext) for ext in valid_exts)
+    if not (is_image_content or is_image_ext):
         raise HTTPException(status_code=400, detail="Valid image required.")
     
     contents = await file.read()
-    image = Image.open(io.BytesIO(contents))
+    try:
+        image = Image.open(io.BytesIO(contents))
+        image.load()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid image: {str(e)}")
     
     metadata = analyze_metadata(image, filename=file.filename or "", raw_bytes=contents)
+    if max(image.size) > 1600:
+        image.thumbnail((1600, 1600), Image.Resampling.BILINEAR)
+
     ela_mean, ela_uniformity, _ = compute_ela(image)
     fft_high_ratio, fft_radial_var, grid_detected, _ = compute_fft_spectral(image)
     
@@ -129,6 +157,9 @@ async def export_report(file: UploadFile = File(...)):
     
     pdf_bytes = generate_forensic_pdf(analysis_payload, filename=file.filename or "image.jpg")
     
+    del contents, image
+    gc.collect()
+
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",

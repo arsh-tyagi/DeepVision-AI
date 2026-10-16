@@ -36,7 +36,11 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onFileSelected, is
 
   const validateAndProcess = (file: File) => {
     setErrorMsg(null);
-    if (!file.type.startsWith("image/")) {
+    const validExtensions = [".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif", ".tiff", ".bmp", ".jfif"];
+    const isImageMime = Boolean(file.type && file.type.startsWith("image/"));
+    const hasValidExt = validExtensions.some((ext) => file.name.toLowerCase().endsWith(ext));
+
+    if (!isImageMime && !hasValidExt) {
       setErrorMsg("Please upload a valid image file (JPEG, PNG, WebP, HEIC).");
       return;
     }
@@ -144,7 +148,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onFileSelected, is
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept="image/*,.heic,.heif,.jpg,.jpeg,.png,.webp"
           className="hidden"
           onChange={handleFileInput}
           disabled={isLoading}
