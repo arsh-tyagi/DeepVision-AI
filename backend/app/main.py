@@ -29,6 +29,10 @@ app.add_middleware(
 
 vision_detector = LightweightVisionDetector()
 
+@app.get("/healthz")
+def healthz():
+    return {"status": "ok"}
+
 @app.get("/")
 def root():
     return {
